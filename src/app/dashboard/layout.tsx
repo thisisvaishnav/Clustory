@@ -8,12 +8,22 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider  defaultOpen={true}>
-      <AppSidebar />
-      <main className="pt-[57px]">
-        <SidebarTrigger />
+    
+      <main className="pt-[60px]">
+        
         {children}
       </main>
-    </SidebarProvider>
+    
   );
 }
+/*
+return (
+  <SidebarProvider  defaultOpen={true}>
+    <AppSidebar />
+    <main className="pt-[60px]">
+      <SidebarTrigger />
+      {children}
+    </main>
+  </SidebarProvider>
+);
+*/
