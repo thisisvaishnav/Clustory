@@ -13,6 +13,10 @@ import (
 	"k8s.io/client-go/kubernetes"                 // Official Kubernetes Go client
 	"k8s.io/client-go/rest"                       // For in-cluster Kubernetes configuration
 	"k8s.io/client-go/tools/clientcmd"            // For building Kubernetes client configuration
+
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 )
 
 // ClusterInfo defines the structure for the JSON response
@@ -20,6 +24,28 @@ type ClusterInfo struct {
 	Nodes     []string            `json:"nodes"`     // Array of node names
 	Pods      []map[string]string `json:"pods"`      // Array of pod info including node assignment
 	NodesPods map[string][]string `json:"nodesPods"` // Map of node names to list of pods running on that node
+}
+
+// CPUInfo struct
+type CPUInfo struct {
+	Usage float64 `json:"usage"`
+}
+
+// MemoryInfo struct
+type MemoryInfo struct {
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	UsedPercent float64 `json:"usedPercent"`
+}
+
+// DiskInfo struct
+type DiskInfo struct {
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	UsedPercent float64 `json:"usedPercent"`
+	Path        string  `json:"path"`
 }
 
 func main() {
@@ -54,6 +80,12 @@ func main() {
 		}
 		c.JSON(http.StatusOK, info) // Return cluster info as JSON with 200 status code
 	})
+
+	// Metrics endpoints
+	r.GET("/api/metrics/cpu", getCPUInfo)
+	r.GET("/api/metrics/memory", getMemoryInfo)
+	r.GET("/api/metrics/disk", getDiskInfo)
+
 	r.Run(":" + *port) // Start the HTTP server on specified port
 }
 
@@ -117,4 +149,42 @@ func fetchClusterInfo(kubeconfigPath string) (*ClusterInfo, error) {
 		Pods:      podsWithNodes,
 		NodesPods: nodesPods,
 	}, nil
+}
+
+func getCPUInfo(c *gin.Context) {
+	percentages, err := cpu.Percent(0, false)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, CPUInfo{Usage: percentages[0]})
+}
+
+func getMemoryInfo(c *gin.Context) {
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, MemoryInfo{
+		Total:       vmStat.Total,
+		Used:        vmStat.Used,
+		Free:        vmStat.Free,
+		UsedPercent: vmStat.UsedPercent,
+	})
+}
+
+func getDiskInfo(c *gin.Context) {
+	diskStat, err := disk.Usage("/")
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, DiskInfo{
+		Total:       diskStat.Total,
+		Used:        diskStat.Used,
+		Free:        diskStat.Free,
+		UsedPercent: diskStat.UsedPercent,
+		Path:        diskStat.Path,
+	})
 }
